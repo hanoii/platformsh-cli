@@ -6,9 +6,11 @@ use Platformsh\Cli\Exception\RootNotFoundException;
 use Platformsh\Cli\Util\RelationshipsUtil;
 use Platformsh\Client\Model\Environment;
 use Platformsh\Client\Model\Project;
+use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Output\BufferedOutput;
 
 class EnvironmentSqlDumpCommand extends CommandBase
 {
@@ -21,9 +23,51 @@ class EnvironmentSqlDumpCommand extends CommandBase
             ->setDescription('Create a local dump of the remote database')
             ->addOption('file', 'f', InputOption::VALUE_REQUIRED, 'A filename where the dump should be saved. Defaults to "<project ID>--<environment ID>--dump.sql" in the project root')
             ->addOption('timestamp', 't', InputOption::VALUE_NONE, 'Add a timestamp to the dump filename')
+            ->addOption('skip-tables', null, InputOption::VALUE_REQUIRED, 'Skip specfic tables, separated by commas. Accepts wildcard*')
             ->addOption('stdout', null, InputOption::VALUE_NONE, 'Output to STDOUT instead of a file');
         $this->addProjectOption()->addEnvironmentOption()->addAppOption();
     }
+
+    protected function getSqlTables(InputInterface $input, OutputInterface $output) {
+        $db_tables = array();
+
+        $output_show_tables = new BufferedOutput();
+        $command_show_tables = $this->getApplication()->find('environment:sql');
+        $arguments = array(
+            'query' => 'SHOW TABLES',
+        );
+        if ($input->getOption('host')) {
+            $arguments['--host'] = $input->getOption('host');
+        }
+        if ($input->getOption('project')) {
+            $arguments['--project'] = $input->getOption('project');
+        }
+        if ($input->getOption('app')) {
+            $arguments['--app'] = $input->getOption('app');
+        }
+        if ($input->getOption('environment')) {
+            $arguments['--environment'] = $input->getOption('environment');
+        }
+        $input_show_tables = new ArrayInput($arguments);
+        $return_show_talbes = $command_show_tables->run($input_show_tables, $output_show_tables);
+        $db_tables = explode("\n", $output_show_tables->fetch());
+
+        return $db_tables;
+    }
+
+    protected function skipTables(InputInterface $input, OutputInterface $output) {
+        $skip_tables = $input->getOption('skip-tables');
+        if ($skip_tables) {
+            if (preg_match('/\*/', $skip_tables)) {
+
+
+            }
+        }
+        exit();
+
+        return array();
+    }
+
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
