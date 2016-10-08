@@ -2,15 +2,11 @@
 namespace Platformsh\Cli\Command\Project;
 
 use Platformsh\Cli\Command\CommandBase;
-use Platformsh\Cli\Console\AdaptiveTableCell;
 use Platformsh\Cli\Util\PortUtil;
 use Platformsh\Cli\Util\RelationshipsUtil;
-use Platformsh\Cli\Util\Table;
-use Platformsh\Client\Model\Project;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Yaml\Yaml;
 
 class ProjectSshConfigCommand extends CommandBase
 {
@@ -25,6 +21,21 @@ class ProjectSshConfigCommand extends CommandBase
             ->setDescription('outputs OpenSSH valid configuration to connect all of the project environments');
         $this->addProjectOption();
         $this->addAppOption();
+    }
+
+    /**
+     * Automatically determine the best port for a new tunnel.
+     *
+     * @param int $default
+     *
+     * @return int
+     */
+    protected function getPort($default = 30000)
+    {
+        static $ports = [];
+        $port = PortUtil::getPort($ports ? max($ports) + 1 : $default);
+        $ports[] = $port;
+        return $port;
     }
 
     protected function execute(InputInterface $input, OutputInterface $output)
@@ -53,7 +64,7 @@ class ProjectSshConfigCommand extends CommandBase
         foreach ($environments as $environment) {
             if ($environment->hasLink('ssh')) {
                 $sshUrl = $environment->getSshUrl($appName);
-                $sshUrlParts = split("@", $sshUrl);
+                $sshUrlParts = explode("@", $sshUrl);
                 $indent = str_repeat(' ', 2);
 
                 $output->writeln("Host $alias.{$environment->id}");
@@ -66,7 +77,7 @@ class ProjectSshConfigCommand extends CommandBase
                 if ($relationships) {
                     foreach ($relationships as $relationship => $services) {
                         foreach ($services as $serviceKey => $service) {
-                            $localPort = $this->getPort($project->getProperty('id'), $environment->id, $relationship);
+                            $localPort = $this->getPort();
                             $output->writeln($indent . "LocalForward $localPort {$service['host']}:{$service['port']}");
                         }
                     }
